@@ -4,13 +4,23 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import threading
+import psycopg2
 
 app = Flask(__name__)
 CORS(app)  # Разрешаем CORS для клиента
 
+
+conn = psycopg2.connect(
+    host="25.69.126.6",
+    port="5432",
+    database="project",
+    user="main",
+    password="123"
+)
+
 # Подключение к PostgreSQL
-app.config[''] = ''
-app.config[''] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@25.69.126.6:5432/project'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # Модель данных

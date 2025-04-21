@@ -4,7 +4,7 @@ import threading
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, QVBoxLayout, QMessageBox
 
 
-SERVER_URL = "25.69.126.6"
+SERVER_URL = "localhost"
 
 class ClientApp(QWidget):
     def __init__(self):
@@ -102,7 +102,7 @@ class ClientApp(QWidget):
         except requests.exceptions.ConnectionError:
             self.result_text.setText("Ошибка: сервер недоступен")
 
-if __name__ == '':
+if __name__ == '__main__':
     app = QApplication(sys.argv)
     client = ClientApp()
     client.show()
