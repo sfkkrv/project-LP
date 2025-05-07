@@ -2,9 +2,9 @@ import sys
 import requests
 import threading
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, QVBoxLayout, QMessageBox
+from PyQt6.QtCore import QObject, pyqtSignal, QThread
 
-
-SERVER_URL = "localhost"
+SERVER_URL = "http://25.69.126.6:5000"
 
 class ClientApp(QWidget):
     def __init__(self):
@@ -23,9 +23,6 @@ class ClientApp(QWidget):
 
         self.result_text = QTextEdit(self)
         self.result_text.setReadOnly(True)
-
-        self.add_button = QPushButton("Добавить в базу", self)
-        self.add_button.clicked.connect(self.start_add_leak)
 
         self.email_input = QLineEdit(self)
         self.email_input.setPlaceholderText("Email (необязательно)")
@@ -48,20 +45,46 @@ class ClientApp(QWidget):
         layout.addWidget(self.username_input)
         layout.addWidget(self.password_input)
         layout.addWidget(self.data_input)
-        layout.addWidget(self.add_button)
         self.setLayout(layout)
 
     # Проверка утечки в отдельном потоке
     def start_check_leak(self):
-        threading.Thread(target=self.check_leak, daemon=True).start()
+        email = self.email_input.text().strip()
+        username = self.username_input.text().strip()
+        password = self.password_input.text().strip()
+
+        if not (email or username or password):
+            self.result_text.setText("Введите хотя бы одно поле: Email, логин или пароль!")
+            return
+
+        payload = {
+            "email": email if email else None,
+            "username": username if username else None,
+            "password": password if password else None
+        }
+
+        self.thread = QThread()
+        self.worker = LeakChecker(payload)
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.on_check_finished)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
+
+    def on_check_finished(self, result):
+        self.result_text.setText(result)
 
     def check_leak(self):
-        email = self.input_email.text()
-        username = self.input_username.text()
-        password = self.input_password.text()
+        email = self.email_input.text()
+        username = self.username_input.text()
+        password = self.password_input.text()
 
         data = {"email": email, "username": username, "password": password}
-        response = requests.post("25.69.126.6", json=data)
+        response = requests.post("http://25.69.126.6:5000/check", json=data)
 
         if response.status_code == 200:
             result = response.json()
@@ -77,33 +100,36 @@ class ClientApp(QWidget):
     def start_add_leak(self):
         threading.Thread(target=self.add_leak, daemon=True).start()
 
-    def add_leak(self):
-        email = self.email_input.text() or None
-        username = self.username_input.text() or None
-        password = self.password_input.text() or None
-        leaked_data = self.data_input.text()
 
-        if not leaked_data:
-            self.result_text.setText("Введите описание утечки!")
-            return
+class LeakChecker(QObject):
+    finished = pyqtSignal(str)
 
-        payload = {
-            "email": email,
-            "username": username,
-            "password": password,
-            "leaked_data": leaked_data
-        }
+    def __init__(self, payload):
+        super().__init__()
+        self.payload = payload
+
+    def run(self):
         try:
-            response = requests.post(f"{SERVER_URL}/add_leak", json=payload)
+            response = requests.post(f"{SERVER_URL}/check", json=self.payload)
             if response.status_code == 200:
-                self.result_text.setText("Данные успешно добавлены")
+                data = response.json()
+                if data["status"] == "leaked":
+                    result = f"Обнаружена утечка:\n{data['details']}"
+                else:
+                    result = "Утечек не найдено."
             else:
-                self.result_text.setText("Ошибка при добавлении данных")
+                result = "Ошибка при запросе к серверу"
         except requests.exceptions.ConnectionError:
-            self.result_text.setText("Ошибка: сервер недоступен")
+            result = "Ошибка: сервер недоступен"
+
+        self.finished.emit(result)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     client = ClientApp()
     client.show()
     sys.exit(app.exec())
+
+
+
