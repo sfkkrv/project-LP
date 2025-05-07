@@ -13,7 +13,7 @@ CORS(app)  # Разрешаем CORS для клиента
 
 
 conn = psycopg2.connect(
-    host="25.69.126.6",
+    host="localhost",
     port="5432",
     database="project",
     user="main",
@@ -21,7 +21,7 @@ conn = psycopg2.connect(
 )
 
 # Подключение к PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@25.69.126.6:5432/project'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@localhost:5432/project'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -29,7 +29,7 @@ db = SQLAlchemy(app)
 # Модель данных
 class DataLeak(db.Model):
     __tablename__ = "adress"
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String(36), primary_key=True)
     email = db.Column(db.String(255), unique=True)
     username = db.Column(db.String(255))
     password = db.Column(db.String(255))
@@ -66,11 +66,13 @@ def check_password_leak(password):
 
 
 def save_leak_to_db(email=None, username=None, password=None, leaked_data=""):
-    leak = DataLeak(
-        email=email,
-        username=username,
-        password=password,
-        leaked_data=leaked_data
+    try:
+        leak = DataLeak(
+            id=str(uuid.uuid4()),
+            email=email,
+            username=username,
+            password=password,
+            leaked_data=leaked_data
     )
     db.session.add(leak)
     db.session.commit()
