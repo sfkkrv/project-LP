@@ -5,6 +5,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import threading
 import psycopg2
+import uuid
+from sqlalchemy import or_
 
 app = Flask(__name__)
 CORS(app)  # Разрешаем CORS для клиента
@@ -23,11 +25,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@25.69.126.6:5432/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+
 # Модель данных
 class DataLeak(db.Model):
+    __tablename__ = "adress"
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), unique=True)
-    username = db.Column(db.String(100))
+    email = db.Column(db.String(255), unique=True)
+    username = db.Column(db.String(255))
     password = db.Column(db.String(255))
     leaked_data = db.Column(db.Text)
 
@@ -53,18 +57,46 @@ def check_password_leak(password):
     if response.status_code == 200:
         hashes = response.text.splitlines()
         for hash_entry in hashes:
+            if ":" not in hash_entry:
+                continue
             hash_value, count = hash_entry.split(':')
             if hash_value == remaining_chars:
                 return int(count)  # Возвращаем количество утечек
     return 0  # Если утечек не найдено
 
+
+def save_leak_to_db(email=None, username=None, password=None, leaked_data=""):
+    leak = DataLeak(
+        email=email,
+        username=username,
+        password=password,
+        leaked_data=leaked_data
+    )
+    db.session.add(leak)
+    db.session.commit()
+
 # API для проверки утечек
 @app.route('/check', methods=['POST'])
 def check_leak():
     data = request.json  # Получаем данные из запроса (email, username, password)
-    email = data.get('email')
-    username = data.get('username')
-    password = data.get('password')
+    email = data.get('email') or None
+    username = data.get('username') or None
+    password = data.get('password') or None
+
+
+    filters = []
+    if email:
+        filters.append(DataLeak.email == email)
+    if username:
+        filters.append(DataLeak.username == username)
+    if password:
+        filters.append(DataLeak.password == password)
+
+
+    leak_info = DataLeak.query.filter(or_(*filters)).first() if filters else None
+    if leak_info:
+        return jsonify({"status": "leaked", "details": leak_info.leaked_data})
+
 
     # Проверка email через Have I Been Pwned API
     #email_leak = check_email_leak(email)
@@ -76,22 +108,13 @@ def check_leak():
     if password_leak_count > 0:
         return jsonify({"status": "leaked", "details": f"Пароль найден в {password_leak_count} утечках!"})
 
-    # Проверка в локальной базе данных
-    query = DataLeak.query.filter(
-        (DataLeak.email == email) |
-        (DataLeak.username == username) |
-        (DataLeak.password == password)
-    ).first()
-
-    if query:
-        return jsonify({"status": "leaked", "details": query.leaked_data})
-    else:
-        return jsonify({"status": "safe"})
 
 # Запуск сервера в многопоточном режиме
 def run_server():
     app.run(host='0.0.0.0', port=5000, threaded=True)
 
+
 if __name__ == '__main__':
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
+
