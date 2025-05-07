@@ -104,10 +104,13 @@ def check_leak():
         #return jsonify({"status": "leaked", "details": f"Email {email} найден в утечках!"})
 
     # Проверка пароля через PwnedPasswords API
-    password_leak_count = check_password_leak(password)
-    if password_leak_count > 0:
-        return jsonify({"status": "leaked", "details": f"Пароль найден в {password_leak_count} утечках!"})
-
+    if password:
+        password_leak_count = check_password_leak(password)
+        if password_leak_count > 0:
+            print()
+            save_leak_to_db(email=email, username=username, password=password)
+            return jsonify({"status": "leaked", "details": f"Пароль найден в {password_leak_count} утечках!"})
+    return jsonify({"status": "safe"})
 
 # Запуск сервера в многопоточном режиме
 def run_server():
