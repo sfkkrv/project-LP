@@ -76,6 +76,8 @@ def save_leak_to_db(email=None, username=None, password=None, leaked_data=""):
         )
         db.session.add(leak)
         db.session.commit()
+    except Exception as e:
+        print("Ошибка при сохранении в бд:", e)
 
 # API для проверки утечек
 @app.route('/check', methods=['POST'])
