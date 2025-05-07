@@ -73,9 +73,9 @@ def save_leak_to_db(email=None, username=None, password=None, leaked_data=""):
             username=username,
             password=password,
             leaked_data=leaked_data
-    )
-    db.session.add(leak)
-    db.session.commit()
+        )
+        db.session.add(leak)
+        db.session.commit()
 
 # API для проверки утечек
 @app.route('/check', methods=['POST'])
