@@ -4,22 +4,11 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import threading
-import psycopg2
-import uuid
-from sqlalchemy import or_
 from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Разрешаем CORS для клиента
 
-
-conn = psycopg2.connect(
-    host="localhost",
-    port="5432",
-    database="project",
-    user="main",
-    password="123"
-)
 
 # Подключение к PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@localhost:5432/project'
@@ -47,6 +36,7 @@ class DataLeak(db.Model):
     #}
     #response = requests.get(url, headers=headers)
     #return response.json() if response.status_code == 200 else None
+
 
 # Функция для проверки пароля через PwnedPasswords API, это, благо, бесплатно работает
 def check_password_leak(password):
@@ -80,6 +70,7 @@ def save_leak_to_db(email=None, username=None, password=None, leaked_data=""):
     except Exception as e:
         print("Ошибка при сохранении в бд:", e)
 
+
 # API для проверки утечек
 @app.route('/check', methods=['POST'])
 def check_leak():
@@ -87,21 +78,6 @@ def check_leak():
     email = data.get('email') or None
     username = data.get('username') or None
     password = data.get('password') or None
-
-
-    filters = []
-    if email:
-        filters.append(DataLeak.email == email)
-    if username:
-        filters.append(DataLeak.username == username)
-    if password:
-        filters.append(DataLeak.password == password)
-
-
-    leak_info = DataLeak.query.filter(or_(*filters)).first() if filters else None
-    if leak_info:
-        return jsonify({"status": "leaked", "details": leak_info.leaked_data})
-
 
     # Проверка email через Have I Been Pwned API
     #email_leak = check_email_leak(email)
@@ -118,6 +94,7 @@ def check_leak():
         else:
             save_leak_to_db(email=email, username=username, password=password, leaked_data="Утечек не найдено")
             return jsonify({"status": "safe"})
+
 
 # Запуск сервера в многопоточном режиме
 def run_server():
