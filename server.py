@@ -14,7 +14,7 @@ CORS(app)  # Разрешаем CORS для клиента
 
 
 conn = psycopg2.connect(
-    host="25.69.126.6",
+    host="localhost",
     port="5432",
     database="project",
     user="main",
@@ -22,7 +22,7 @@ conn = psycopg2.connect(
 )
 
 # Подключение к PostgreSQL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@25.69.126.6:5432/project'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://main:123@localhost:5432/project'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -30,11 +30,12 @@ db = SQLAlchemy(app)
 # Модель данных
 class DataLeak(db.Model):
     __tablename__ = "adress"
-    id = db.Column(db.DateTime, primary_key=True, default=datetime.now)
+    id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True)
     username = db.Column(db.String(255))
     password = db.Column(db.String(255))
     leaked_data = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
 
 # Функция для проверки email через API Have I Been Pwned, но пока не работает по причине "у меня нет денег"
@@ -112,9 +113,11 @@ def check_leak():
         password_leak_count = check_password_leak(password)
         if password_leak_count > 0:
             print()
-            save_leak_to_db(email=email, username=username, password=password)
+            save_leak_to_db(email=email, username=username, password=password, leaked_data=f"Найден в {password_leak_count} утечках")
             return jsonify({"status": "leaked", "details": f"Пароль найден в {password_leak_count} утечках!"})
-    return jsonify({"status": "safe"})
+        else:
+            save_leak_to_db(email=email, username=username, password=password, leaked_data="Утечек не найдено")
+            return jsonify({"status": "safe"})
 
 # Запуск сервера в многопоточном режиме
 def run_server():
@@ -124,4 +127,3 @@ def run_server():
 if __name__ == '__main__':
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
-
