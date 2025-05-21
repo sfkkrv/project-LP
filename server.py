@@ -57,6 +57,7 @@ def check_password_leak(password):
     return 0  # Если утечек не найдено
 
 
+#Сохранение в БД
 def save_leak_to_db(email=None, username=None, password=None, leaked_data=""):
     try:
         leak = DataLeak(
